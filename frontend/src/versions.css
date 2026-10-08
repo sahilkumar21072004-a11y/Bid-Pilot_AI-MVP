@@ -1,0 +1,1 @@
+.version-panel{margin-top:16px}.version-row{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 0;border-top:1px solid var(--border)}.version-row strong,.version-row small{display:block}.version-row strong{font-size:11px}.version-row small{color:var(--muted);font-size:9px;margin-top:4px}

@@ -1,0 +1,37 @@
+DEMO RFP — CUSTOMER SUPPORT PORTAL
+Fictional example for testing BID-PILOT AI. This is not a real procurement notice.
+
+Issuing organisation: Northstar Community Services (fictional)
+Project: Customer Support Portal Implementation
+Issue date: 8 October 2026
+Response deadline: 30 November 2026
+
+1. Background
+Northstar Community Services is seeking a vendor to design and implement a secure customer support portal for approximately 5,000 users. The portal should support service requests, status tracking, knowledge articles, and administrator reporting.
+
+2. Mandatory requirements
+- The vendor must provide role-based access for customers, support agents, and administrators.
+- The solution must encrypt data in transit using TLS 1.2 or newer.
+- The vendor shall provide 24/7 incident response for priority-one service outages.
+- The solution must support single sign-on using SAML 2.0 or OpenID Connect.
+- The vendor must provide a documented backup and disaster recovery plan.
+- The project must include security testing before production launch.
+
+3. Desired requirements
+- The portal should meet WCAG 2.2 AA accessibility guidance.
+- The solution should provide dashboards for ticket volumes and resolution times.
+- The vendor may propose optional AI-assisted article recommendations, clearly identified as an option.
+
+4. Scope and delivery
+The vendor must provide discovery, solution design, configuration or development, testing, deployment, and administrator training. The proposal should include a delivery timeline with milestones, named workstreams, and customer responsibilities. The vendor shall identify assumptions, dependencies, and delivery risks.
+
+5. Support and service levels
+The proposal must describe support hours, incident severity definitions, escalation steps, and target response times. The vendor should include a sample monthly service report.
+
+6. Pricing response
+The vendor must provide a clear breakdown of implementation costs, recurring subscription or hosting costs, optional services, and any pricing assumptions. State the currency and validity period of the quotation. Do not assume that a budget has been approved.
+
+7. Proposal response format
+Please include an executive summary, understanding of requirements, proposed solution, delivery approach and timeline, security and compliance response, support model, pricing, relevant experience, assumptions, and risks. For every mandatory requirement, state the response and provide supporting evidence or identify any gap.
+
+END OF FICTIONAL DEMO RFP
