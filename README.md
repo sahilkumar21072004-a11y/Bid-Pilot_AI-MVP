@@ -14,7 +14,7 @@ The code is separated into the frontend, API, local persistence, and draft/extra
 6. **Validation:** edit requirement responses and review states; assign a reviewer, set workflow status, and add comments.
 7. **Output:** edit and save proposals in the configured database, then export DOCX or PDF.
 
-The knowledge base and company profile are persisted locally. A replaceable `KnowledgeRetriever` interface ranks entries using local TF-IDF/cosine similarity. Draft generation uses deterministic mock mode by default; configure `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` to use an OpenAI-compatible chat-completions API. Connection errors fall back to the local draft. Retrieval is lexical rather than embedding-based vector search. The SQLAlchemy storage adapter supports SQLite and PostgreSQL through the optional `DATABASE_URL` setting.
+The knowledge base and company profile are persisted locally. A replaceable `KnowledgeRetriever` interface ranks entries using local TF-IDF/cosine similarity. Draft generation uses deterministic mock mode by default; configure `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` to use an OpenAI-compatible chat-completions API. Connection errors fall back to the local draft. Retrieval is lexical rather than embedding-based vector search. The SQLAlchemy storage adapter supports SQLite and PostgreSQL through the optional `DATABASE_URL` setting. Alembic applies forward-only, versioned schema migrations on backend startup and can also be run manually from `backend` with `python -m alembic upgrade head`.
 
 ## Requirements
 
@@ -73,6 +73,30 @@ The MVP includes optional signed authentication with individual reviewer/viewer 
 Recommended next phases:
 
 1. Run backend tests and frontend build after upload hardening; test representative PDF, DOCX, oversized, malformed, and scanned files.
-2. Add persistent migrations and documented PostgreSQL backup/restore procedures.
+2. Schedule and periodically restore-test database backups (SQLite backup API or PostgreSQL `pg_dump`/`pg_restore`).
 3. Add evidence citations and confidence review, then improve retrieval with embeddings and quality evaluation.
 4. Add malware scanning, encrypted storage, retention/deletion controls, rate limiting, observability, and deployment safeguards before using real customer RFPs.
+
+
+## Database migrations and backups
+
+The backend applies versioned Alembic migrations at startup. To apply them manually from the `backend` directory, run:
+
+```powershell
+python -m alembic upgrade head
+```
+
+For SQLite, stop the backend before copying the database file for a simple backup. For a consistent online backup, use Python's SQLite backup API:
+
+```powershell
+python -c "import sqlite3; src=sqlite3.connect('bidpilot.db'); dst=sqlite3.connect('bidpilot-backup.db'); src.backup(dst); dst.close(); src.close()"
+```
+
+For PostgreSQL, install the PostgreSQL client tools and use a native libpq connection URL in `PGDATABASE_URL`:
+
+```powershell
+pg_dump --format=custom --file=bidpilot.dump $env:PGDATABASE_URL
+pg_restore --clean --if-exists --dbname=$env:PGDATABASE_URL bidpilot.dump
+```
+
+Keep backup files encrypted and restrict access. Test restores regularly; a backup is useful only if it can be restored.
