@@ -1,6 +1,6 @@
 # BID-PILOT AI — Local MVP
 
-A local-first prototype for turning an RFP into an editable proposal draft. It includes a dark React dashboard, a FastAPI service, SQLite persistence, requirement review, company and knowledge context, templates, reviewer assignment, comments, and DOCX/PDF export. Demo mode works without an LLM key.
+A local-first prototype for turning an RFP into an editable proposal draft. It includes a dark React dashboard, a FastAPI service, SQLite or PostgreSQL-ready persistence, requirement review, company and knowledge context, templates, reviewer assignment, comments, and DOCX/PDF export. Demo mode works without an LLM key.
 
 ## Architecture
 
@@ -12,9 +12,9 @@ The code is separated into the frontend, API, local persistence, and draft/extra
 4. **Multi-agent workflow:** a LangGraph graph runs Extraction, Analysis, Drafting, Cost Estimation, Compliance, and Optimisation nodes. Each saved proposal records the node run summary and mock/LLM mode.
 5. **Template engine:** user-defined section outlines shape generated drafts.
 6. **Validation:** edit requirement responses and review states; assign a reviewer, set workflow status, and add comments.
-7. **Output:** edit and save proposals in SQLite, then export DOCX or PDF.
+7. **Output:** edit and save proposals in the configured database, then export DOCX or PDF.
 
-The knowledge base and company profile are persisted locally. A replaceable `KnowledgeRetriever` interface ranks entries using local TF-IDF/cosine similarity. Draft generation uses deterministic mock mode by default; configure `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` to use an OpenAI-compatible chat-completions API. Connection errors fall back to the local draft. Retrieval is lexical rather than embedding-based vector search. SQLite can be replaced behind the storage module in a later phase.
+The knowledge base and company profile are persisted locally. A replaceable `KnowledgeRetriever` interface ranks entries using local TF-IDF/cosine similarity. Draft generation uses deterministic mock mode by default; configure `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` to use an OpenAI-compatible chat-completions API. Connection errors fall back to the local draft. Retrieval is lexical rather than embedding-based vector search. The SQLAlchemy storage adapter supports SQLite and PostgreSQL through the optional `DATABASE_URL` setting.
 
 ## Requirements
 
@@ -50,7 +50,7 @@ Open the Vite URL printed in the terminal, usually `http://localhost:5173`.
 
 ## Environment variables
 
-Copy `.env.example` to `backend/.env` to configure the backend. `DATABASE_PATH` defaults to `./bidpilot.db` relative to the backend working directory. `FRONTEND_ORIGIN` configures CORS. Frontend `VITE_API_URL` may be set in `frontend/.env.local`; its default is `http://127.0.0.1:8000`. No API keys are needed or stored. To enable the optional single-admin login, set `AUTH_ENABLED=true`, choose a private `ADMIN_PASSWORD`, and set a long random `SESSION_SECRET` in `backend/.env`; then restart the backend. Do not commit that file. The login produces an eight-hour signed bearer token. This does not create individual reviewer accounts.
+Copy `.env.example` to `backend/.env` to configure the backend. `DATABASE_PATH` defaults to `./bidpilot.db` relative to the backend working directory; set `DATABASE_URL` to a PostgreSQL SQLAlchemy URL to use PostgreSQL instead. `FRONTEND_ORIGIN` configures CORS. Frontend `VITE_API_URL` may be set in `frontend/.env.local`; its default is `http://127.0.0.1:8000`. No API keys are needed or stored in the repository. To enable authentication, set `AUTH_ENABLED=true`, choose a private `ADMIN_PASSWORD`, and set a long random `SESSION_SECRET` in `backend/.env`; then restart the backend. Do not commit that file. The admin login produces an eight-hour signed bearer token and can manage individual Reviewer and Viewer accounts.
 
 ## Tests and build
 
