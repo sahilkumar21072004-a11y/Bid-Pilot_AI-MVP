@@ -19,6 +19,7 @@ from .retrieval import retriever
 from .security import hash_password, issue_token, verify_password, verify_token
 from .workflow import run_proposal_workflow
 from .store import connect, initialize, row_dict
+from .document_security import (MAX_OCR_PAGES, MAX_OCR_PIXELS, MAX_PDF_PAGES, MAX_UPLOAD_BYTES, validate_extracted_text, validate_upload_content, validate_upload_name)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("bidpilot")
@@ -130,15 +131,18 @@ def get_proposal(proposal_id: int) -> dict[str, Any]:
 
 
 async def read_upload(file: UploadFile) -> str:
-    name = Path(file.filename or "upload").name
-    content = await file.read()
-    if len(content) > 25 * 1024 * 1024:
-        raise HTTPException(413, "File must be 25 MB or smaller")
-    suffix = Path(name).suffix.lower()
+    name, suffix = validate_upload_name(file.filename)
+    # Read only one byte beyond the configured limit so oversized bodies are rejected early.
+    content = await file.read(MAX_UPLOAD_BYTES + 1)
+    validate_upload_content(suffix, content)
     try:
         if suffix == ".pdf":
             with fitz.open(stream=content, filetype="pdf") as pdf:
-                extracted = "\n".join(page.get_text() for page in pdf).strip()
+                if pdf.needs_pass:
+                    raise HTTPException(422, "Password-protected PDFs are not supported")
+                if pdf.page_count > MAX_PDF_PAGES:
+                    raise HTTPException(413, f"PDFs are limited to {MAX_PDF_PAGES} pages")
+                extracted = validate_extracted_text("\\n".join(page.get_text() for page in pdf).strip())
                 if len(extracted) >= 80:
                     return extracted
                 try:
@@ -146,32 +150,39 @@ async def read_upload(file: UploadFile) -> str:
                     from PIL import Image
                     if settings.tesseract_cmd:
                         pytesseract.pytesseract.tesseract_cmd = settings.tesseract_cmd
+                    if pdf.page_count > MAX_OCR_PAGES:
+                        raise HTTPException(413, f"Scanned PDF OCR is limited to {MAX_OCR_PAGES} pages")
                     ocr_pages = []
                     for page in pdf:
-                        pixmap = page.get_pixmap(dpi=220, alpha=False)
+                        zoom = 220 / 72
+                        rect = page.rect
+                        pixels = rect.width * zoom * rect.height * zoom
+                        if pixels > MAX_OCR_PIXELS:
+                            zoom *= (MAX_OCR_PIXELS / pixels) ** 0.5
+                        pixmap = page.get_pixmap(matrix=fitz.Matrix(zoom, zoom), alpha=False)
                         image = Image.open(io.BytesIO(pixmap.tobytes("png")))
                         ocr_pages.append(pytesseract.image_to_string(image))
-                    ocr_text = "\n".join(ocr_pages).strip()
+                    ocr_text = validate_extracted_text("\\n".join(ocr_pages).strip())
                     if ocr_text:
                         logger.info("OCR extracted text from scanned PDF %s", name)
                         return ocr_text
+                except HTTPException:
+                    raise
                 except Exception as exc:
                     logger.info("Local OCR unavailable or unsuccessful for %s: %s", name, exc)
                 if extracted:
                     return extracted
                 raise HTTPException(422, "No selectable text found. Install Tesseract OCR and set TESSERACT_CMD to process this scanned PDF.")
         if suffix == ".docx":
-            import io
             document = Document(io.BytesIO(content))
-            return "\n".join(p.text for p in document.paragraphs)
+            return validate_extracted_text("\\n".join(p.text for p in document.paragraphs))
         if suffix in {".txt", ".md"}:
-            return content.decode("utf-8", errors="replace")
+            return validate_extracted_text(content.decode("utf-8-sig", errors="replace"))
     except HTTPException:
         raise
     except Exception as exc:
         logger.exception("Document parsing failed for %s", name)
         raise HTTPException(422, "Unable to parse document") from exc
-    raise HTTPException(415, "Supported files: PDF, DOCX, TXT, MD")
 
 
 @app.get("/api/health")
