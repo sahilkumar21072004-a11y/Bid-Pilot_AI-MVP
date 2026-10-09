@@ -116,19 +116,13 @@ def connect() -> Iterator[CompatConnection]:
 
 
 def initialize() -> None:
-    metadata.create_all(engine)
-    inspector = inspect(engine)
-    migrations = {
-        "proposals": {"workflow": "TEXT NOT NULL DEFAULT '{}'"},
-        "team": {"username": "TEXT", "password_hash": "TEXT", "active": "BOOLEAN NOT NULL DEFAULT TRUE"},
-    }
+    # Apply versioned migrations on startup so existing SQLite databases are upgraded safely.
+    from alembic import command
+
+    from .migrations import make_alembic_config
+
+    command.upgrade(make_alembic_config(), "head")
     with engine.begin() as connection:
-        for table_name, columns in migrations.items():
-            existing = {item["name"] for item in inspector.get_columns(table_name)}
-            for column_name, sql_type in columns.items():
-                if column_name not in existing:
-                    connection.execute(text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {sql_type}"))
-        connection.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS uq_team_username ON team(username)"))
         connection.execute(text("INSERT INTO settings(key,value) VALUES('company','{}') ON CONFLICT(key) DO NOTHING"))
         existing_template = connection.execute(text("SELECT id FROM templates WHERE name='Standard proposal' LIMIT 1")).first()
         if not existing_template:
