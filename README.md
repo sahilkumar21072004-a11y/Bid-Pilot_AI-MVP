@@ -66,13 +66,13 @@ From `frontend`:
 npm run build
 ```
 
-## Current scope and next phases
+## Current scope and production gaps
 
-This is a local MVP for exploring the workflow. Optional single-admin authentication and read-only viewer token enforcement are included, but it is not a production multi-user system: team roles are assignment labels, not individual authenticated accounts; database migrations, audit/version history, embedding-based vector retrieval, hardened document security, and end-to-end tests remain future work. Before production, add user-managed accounts/roles, durable migrations/backups, file scanning/retention controls, observability, and deployment safeguards.
+The MVP includes optional signed authentication with individual reviewer/viewer accounts, role checks, proposal version snapshots and audit events, and a SQLAlchemy storage adapter configured for SQLite or PostgreSQL. The upload path validates supported file types and size, checks PDF/DOCX structure, and applies document parsing limits. These controls are useful for a local prototype; they do not replace malware scanning, encrypted object storage, retention/deletion policies, managed database migrations/backups, rate limiting, monitoring, or a deployment security review.
 
-Suggested phases:
+Recommended next phases:
 
-1. Run and verify the local MVP, review generated requirements, and edit/save/export proposals.
-2. Add extraction confidence/evidence review and test OCR against representative scans.
-3. Add embedding-based retrieval behind the existing retriever interface.
-4. Add authenticated users, authorization, version/audit history, and production deployment controls.
+1. Run backend tests and frontend build after upload hardening; test representative PDF, DOCX, oversized, malformed, and scanned files.
+2. Add persistent migrations and documented PostgreSQL backup/restore procedures.
+3. Add evidence citations and confidence review, then improve retrieval with embeddings and quality evaluation.
+4. Add malware scanning, encrypted storage, retention/deletion controls, rate limiting, observability, and deployment safeguards before using real customer RFPs.
