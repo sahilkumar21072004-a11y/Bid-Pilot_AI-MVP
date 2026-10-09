@@ -3,7 +3,6 @@ from alembic.operations import Operations
 from sqlalchemy import create_engine, inspect, text
 
 from app import store
-from app.migrations import make_alembic_config
 from migrations.versions.v0001_versioned_schema import upgrade
 
 
