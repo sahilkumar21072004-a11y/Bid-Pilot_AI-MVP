@@ -20,6 +20,8 @@ from .security import hash_password, issue_token, verify_password, verify_token
 from .workflow import run_proposal_workflow
 from .store import connect, initialize, row_dict
 from .document_security import (MAX_OCR_PAGES, MAX_OCR_PIXELS, MAX_PDF_PAGES, MAX_UPLOAD_BYTES, validate_extracted_text, validate_upload_content, validate_upload_name)
+from .antivirus import scan_uploaded_file
+from .login_protection import clear_login_failures, enforce_login_rate_limit, record_login_failure
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("bidpilot")
@@ -30,7 +32,10 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title=settings.app_name, version="0.1.0", description="Local-first RFP proposal automation MVP", lifespan=lifespan)
-app.add_middleware(CORSMiddleware, allow_origins=[settings.frontend_origin, "http://127.0.0.1:5173"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+allowed_origins = [settings.frontend_origin]
+if not settings.is_production:
+    allowed_origins.append("http://127.0.0.1:5173")
+app.add_middleware(CORSMiddleware, allow_origins=allowed_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 
 
 @app.middleware("http")
@@ -135,6 +140,7 @@ async def read_upload(file: UploadFile) -> str:
     # Read only one byte beyond the configured limit so oversized bodies are rejected early.
     content = await file.read(MAX_UPLOAD_BYTES + 1)
     validate_upload_content(suffix, content)
+    scan_uploaded_file(content)
     try:
         if suffix == ".pdf":
             with fitz.open(stream=content, filetype="pdf") as pdf:
@@ -198,11 +204,13 @@ def auth_config(request: Request) -> dict[str, Any]:
 
 
 @app.post("/api/auth/login")
-def auth_login(payload: LoginInput) -> dict[str, str]:
+def auth_login(payload: LoginInput, request: Request) -> dict[str, str]:
     if not settings.auth_enabled:
         raise HTTPException(400, "Login is disabled. Set AUTH_ENABLED=true to enable it.")
     if not settings.admin_password or not settings.session_secret:
         raise HTTPException(503, "Set ADMIN_PASSWORD and SESSION_SECRET in backend/.env before enabling login.")
+    client_host = request.client.host if request.client else "unknown"
+    enforce_login_rate_limit(client_host, payload.username)
     role = "admin" if hmac.compare_digest(payload.username, settings.admin_username) and hmac.compare_digest(payload.password, settings.admin_password) else ""
     if not role:
         with connect() as db:
@@ -210,9 +218,10 @@ def auth_login(payload: LoginInput) -> dict[str, str]:
         if row and row["active"] and row["password_hash"] and verify_password(payload.password, row["password_hash"]):
             role = str(row["role"]).lower()
     if not role:
+        record_login_failure(client_host, payload.username)
         raise HTTPException(401, "Incorrect username or password")
+    clear_login_failures(client_host, payload.username)
     return {"access_token": issue_token(payload.username, role), "token_type": "bearer", "username": payload.username, "role": role}
-
 
 @app.get("/api/dashboard")
 def dashboard() -> dict[str, Any]:
