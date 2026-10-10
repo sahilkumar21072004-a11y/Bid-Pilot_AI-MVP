@@ -52,6 +52,12 @@ Open the Vite URL printed in the terminal, usually `http://localhost:5173`.
 
 Copy `.env.example` to `backend/.env` to configure the backend. `DATABASE_PATH` defaults to `./bidpilot.db` relative to the backend working directory; set `DATABASE_URL` to a PostgreSQL SQLAlchemy URL to use PostgreSQL instead. `FRONTEND_ORIGIN` configures CORS. Frontend `VITE_API_URL` may be set in `frontend/.env.local`; its default is `http://127.0.0.1:8000`. No API keys are needed or stored in the repository. To enable authentication, set `AUTH_ENABLED=true`, choose a private `ADMIN_PASSWORD`, and set a long random `SESSION_SECRET` in `backend/.env`; then restart the backend. Do not commit that file. The admin login produces an eight-hour signed bearer token and can manage individual Reviewer and Viewer accounts.
 
+## Production security configuration
+
+For a production deployment, set `APP_ENV=production`. The backend will refuse to start unless authentication is enabled, the admin password is at least 16 characters, the session secret is at least 32 characters, the frontend origin uses HTTPS, and ClamAV scanning is enabled. Set these values only in the deployment's secret manager or private environment; never commit credentials.
+
+Configure `CLAMAV_ENABLED=true`, `CLAMAV_HOST`, and `CLAMAV_PORT` to point at a private, reachable ClamAV daemon. Uploads are rejected if the scanner is unavailable or cannot verify the file. Local demo mode keeps scanning disabled by default.
+
 ## Tests and build
 
 From `backend` with its virtual environment active:
@@ -68,14 +74,14 @@ npm run build
 
 ## Current scope and production gaps
 
-The MVP includes optional signed authentication with individual reviewer/viewer accounts, role checks, proposal version snapshots and audit events, and a SQLAlchemy storage adapter configured for SQLite or PostgreSQL. The upload path validates supported file types and size, checks PDF/DOCX structure, and applies document parsing limits. These controls are useful for a local prototype; they do not replace malware scanning, encrypted object storage, retention/deletion policies, managed database migrations/backups, rate limiting, monitoring, or a deployment security review.
+The MVP includes optional signed authentication with individual reviewer/viewer accounts, role checks, proposal version snapshots and audit events, and a SQLAlchemy storage adapter configured for SQLite or PostgreSQL. The upload path validates supported file types and size, checks PDF/DOCX structure, applies parsing limits, and can scan through ClamAV. Production mode refuses to start unless authentication, strong secrets, HTTPS frontend origin, and ClamAV scanning are configured. A ClamAV service, encrypted storage, retention/deletion policies, scheduled backups, monitoring, and a deployment security review are still required before handling customer RFPs.
 
 Recommended next phases:
 
 1. Run backend tests and frontend build after upload hardening; test representative PDF, DOCX, oversized, malformed, and scanned files.
 2. Schedule and periodically restore-test database backups (SQLite backup API or PostgreSQL `pg_dump`/`pg_restore`).
 3. Add evidence citations and confidence review, then improve retrieval with embeddings and quality evaluation.
-4. Add malware scanning, encrypted storage, retention/deletion controls, rate limiting, observability, and deployment safeguards before using real customer RFPs.
+4. Configure a reachable ClamAV daemon, encrypted storage, retention/deletion controls, observability, and deployment safeguards before using real customer RFPs.
 
 
 ## Database migrations and backups
