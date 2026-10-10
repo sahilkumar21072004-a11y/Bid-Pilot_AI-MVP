@@ -10,8 +10,16 @@ import "./versions.css";
 const AGENTS = ["Extraction Agent", "Analysis Agent", "Drafting Agent", "Cost Estimation Agent", "Compliance Agent", "Optimisation Agent"];
 const blankCompany = { name: "", tagline: "", capabilities: "", certifications: "", case_studies: "", rate_card: "" };
 
+function timeGreeting(date = new Date()) {
+  const hour = date.getHours();
+  if (hour >= 5 && hour < 12) return "Good morning";
+  if (hour >= 12 && hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
 export default function App() {
   const [page, setPage] = useState("Overview");
+  const [greeting, setGreeting] = useState(() => timeGreeting());
   const [dashboard, setDashboard] = useState({});
   const [proposals, setProposals] = useState([]);
   const [knowledge, setKnowledge] = useState([]);
@@ -30,6 +38,16 @@ export default function App() {
   const [knowledgeForm, setKnowledgeForm] = useState({ title: "", content: "", category: "General", tags: "" });
   const [templateForm, setTemplateForm] = useState({ name: "", sections: "Executive Summary, Delivery Approach, Timeline, Investment, Compliance" });
   const [memberForm, setMemberForm] = useState({ name: "", email: "", username: "", password: "", role: "Reviewer" });
+
+  useEffect(() => {
+    const updateGreeting = () => setGreeting(timeGreeting());
+    const interval = window.setInterval(updateGreeting, 60_000);
+    window.addEventListener("focus", updateGreeting);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", updateGreeting);
+    };
+  }, []);
 
   const refresh = useCallback(async () => {
     setError("");
@@ -98,7 +116,7 @@ export default function App() {
     <aside className="sidebar"><div className="brand"><div className="brand-icon"><Activity size={19}/></div><div><strong>BID-PILOT <i>AI</i></strong><small>PROPOSAL INTELLIGENCE</small></div></div><div className="nav-label">WORKSPACE</div><nav>{nav.map(({ label, icon: Icon }) => <button key={label} className={`nav-link ${page === label ? "active" : ""}`} onClick={() => { setPage(label); setSelected(null); }}><Icon size={17}/>{label}{label === "Proposals" && <span className="nav-count">{proposals.length}</span>}</button>)}</nav><div className="side-bottom"><div className="demo-badge"><span/> {authRequired ? `Signed in as ${user?.username || "admin"}` : "Local demo mode"}</div><div className="help"><CircleHelp size={17}/><strong>Need a hand?</strong><p>API and health checks are available in FastAPI docs.</p><a href={`${API}/docs`} target="_blank" rel="noreferrer">Open API guide <ChevronRight size={14}/></a></div>{authRequired && <button className="signout-button" onClick={() => { sessionStorage.removeItem("bidpilot_access_token"); setAuthenticated(false); setUser(null); }}>Sign out</button>}<small className="version">BID-PILOT AI · MVP</small></div></aside>
     <main className="main"><header className="topbar"><div><span className="crumb">WORKSPACE / </span><span>{selected && page === "Proposals" ? selected.title : page}</span></div><div className="top-user"><span className="online-dot"/> SYSTEM READY <div className="avatar">SK</div></div></header>
       <div className="content">{error && <div className="alert error">{error}<button onClick={() => setError("")}>×</button></div>}{notice && <div className="alert success">{notice}<button onClick={() => setNotice("")}>×</button></div>}
-      {page === "Overview" && <><div className="welcome"><div><p className="eyebrow">BID-PILOT WORKSPACE</p><h1>Good morning, Sahil <Sparkles size={22}/></h1><p>Turn RFP requirements into a grounded proposal your team can review.</p></div><button className="button secondary" onClick={() => { setSelected(null); setPage("Proposals"); }}><Plus size={16}/> New proposal</button></div>
+      {page === "Overview" && <><div className="welcome"><div><p className="eyebrow">BID-PILOT WORKSPACE</p><h1>{greeting}, Sahil <Sparkles size={22}/></h1><p>Turn RFP requirements into a grounded proposal your team can review.</p></div><button className="button secondary" onClick={() => { setSelected(null); setPage("Proposals"); }}><Plus size={16}/> New proposal</button></div>
         <div className="stat-grid">{[["Proposals", dashboard.proposals ?? "—", "Saved drafts", FileText], ["Requirements", dashboard.requirements ?? "—", "Across proposals", Settings2], ["Mandatory", dashboard.mandatory ?? "—", "Must-have items", ShieldCheck], ["Compliance", `${dashboard.compliance ?? 0}%`, "Approved requirements", Check]].map(([label, value, sub, Icon]) => <article className="stat-card" key={label}><div className="stat-head"><span>{label}</span><Icon size={16}/></div><strong>{value}</strong><small>{sub}</small></article>)}</div>
         <div className="dashboard-grid"><section className="panel upload-panel"><div className="panel-title"><div><span className="eyebrow">GET STARTED · STEP 01</span><h2>Start with an RFP</h2></div><span className="step-pill">01 / 03</span></div><form onSubmit={generate}><label className="dropzone"><input name="rfp" type="file" accept=".pdf,.docx,.txt,.md"/><Upload size={24}/><strong>Drop your RFP here</strong><span>or browse from your computer</span><small>PDF, DOCX, TXT or MD · up to 25 MB</small></label><div className="upload-actions"><select name="template"><option value="">Standard proposal template</option>{templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}</select><button className="button primary" disabled={busy}>{busy ? <><span className="spinner"/> Processing</> : <><WandSparkles size={16}/> Generate proposal</>}</button></div></form></section>
         <section className="panel agent-panel"><div className="panel-title"><div><span className="eyebrow">YOUR AI TEAM</span><h2>Specialised agents</h2></div><span className="ready-pill"><span/> Demo ready</span></div><div className="agent-grid">{AGENTS.map((name, i) => <div className="agent" key={name}><span className={`agent-icon tint-${i}`}>{["EX", "AN", "DR", "CE", "CO", "OP"][i]}</span><div><strong>{name}</strong><small><span/> Ready for demo workflow</small></div><ChevronRight size={15}/></div>)}</div><div className="workflow-line"><Sparkles size={16}/> Proposal workflow <small>Upload an RFP to begin</small></div></section></div>
