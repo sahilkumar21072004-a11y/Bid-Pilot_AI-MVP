@@ -35,6 +35,9 @@ audit_events = Table("audit_events", metadata,
     Column("id", Integer, primary_key=True), Column("actor", Text, nullable=False), Column("action", Text, nullable=False),
     Column("entity_type", Text, nullable=False), Column("entity_id", Text, nullable=False), Column("details", Text, nullable=False, server_default="{}"),
     Column("created_at", DateTime, nullable=False, server_default=func.current_timestamp()))
+login_attempts = Table("login_attempts", metadata,
+    Column("key", Text, primary_key=True), Column("window_started_at", Integer, nullable=False),
+    Column("failures", Integer, nullable=False, server_default="0"), Column("locked_until", Integer, nullable=False, server_default="0"))
 
 _url = settings.database_url.strip() or f"sqlite:///{settings.database_path}"
 _engine_options: dict[str, Any] = {"pool_pre_ping": True}

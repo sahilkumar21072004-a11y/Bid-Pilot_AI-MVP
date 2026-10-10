@@ -50,5 +50,6 @@ def test_startup_records_the_applied_migration(tmp_path, monkeypatch) -> None:
     store.initialize()
     with engine.connect() as connection:
         version = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
-    assert version == "0001_versioned_schema"
+        assert "login_attempts" in inspect(connection).get_table_names()
+    assert version == "0002_auth_attempts"
     engine.dispose()
