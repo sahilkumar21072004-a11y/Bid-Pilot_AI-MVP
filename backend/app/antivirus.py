@@ -23,21 +23,21 @@ def scan_uploaded_file(content: bytes) -> None:
     try:
         with socket.create_connection((settings.clamav_host, settings.clamav_port), timeout=10) as connection:
             connection.settimeout(120)
-            connection.sendall(b"zINSTREAM\\0")
+            connection.sendall(b"zINSTREAM\0")
             for offset in range(0, len(content), CHUNK_BYTES):
                 chunk = content[offset : offset + CHUNK_BYTES]
                 connection.sendall(struct.pack("!I", len(chunk)))
                 connection.sendall(chunk)
-            connection.sendall(b"\\0\\0\\0\\0")
+            connection.sendall(b"\0\0\0\0")
             response = bytearray()
             while len(response) < 4096:
                 packet = connection.recv(1024)
                 if not packet:
                     break
                 response.extend(packet)
-                if b"\\0" in packet:
+                if b"\0" in packet:
                     break
-        result = bytes(response).rstrip(b"\\0").decode("utf-8", errors="replace")
+        result = bytes(response).rstrip(b"\0").decode("utf-8", errors="replace")
     except OSError as exc:
         logger.exception("ClamAV scan failed; rejecting upload")
         raise HTTPException(503, "Malware scanner unavailable; upload rejected") from exc
