@@ -1,44 +1,123 @@
-# BID-PILOT AI — Local MVP
+# BID-PILOT AI — RFP-to-Proposal Workflow MVP
 
-A local-first prototype for turning an RFP into an editable proposal draft. It includes a dark React dashboard, a FastAPI service, SQLite or PostgreSQL-ready persistence, requirement review, company and knowledge context, templates, reviewer assignment, comments, and DOCX/PDF export. Demo mode works without an LLM key.
+A **local-first prototype** that helps teams turn Request for Proposal (RFP) documents into editable proposal drafts. Bid-Pilot combines a React dashboard with a FastAPI backend, document extraction, requirement review, configurable templates, reviewer workflows, and DOCX/PDF export.
 
-## Architecture
+> **Project status:** MVP / local development prototype. It is not presented as a production-ready service. Review generated content for accuracy, completeness, compliance, and pricing before using it externally.
 
-The code is separated into the frontend, API, local persistence, and draft/extraction services:
+## Contents
 
-1. **Input:** React upload accepts PDF, DOCX, TXT, and Markdown files (25 MB limit).
-2. **OCR & parsing:** PyMuPDF extracts PDF text and python-docx extracts DOCX text. For image-only PDFs, the parser attempts local Tesseract OCR; install the Tesseract executable separately and set `TESSERACT_CMD` when it is not on `PATH`.
-3. **NLP:** local rule-based extraction classifies requirement wording as mandatory or optional.
-4. **Multi-agent workflow:** a LangGraph graph runs Extraction, Analysis, Drafting, Cost Estimation, Compliance, and Optimisation nodes. Each saved proposal records the node run summary and mock/LLM mode.
-5. **Template engine:** user-defined section outlines shape generated drafts.
-6. **Validation:** edit requirement responses and review states; assign a reviewer, set workflow status, and add comments.
-7. **Output:** edit and save proposals in the configured database, then export DOCX or PDF.
+- [What it does](#what-it-does)
+- [Key capabilities](#key-capabilities)
+- [How it works](#how-it-works)
+- [Technology stack](#technology-stack)
+- [Requirements](#requirements)
+- [Run locally on Windows](#run-locally-on-windows)
+- [Run locally on macOS or Linux](#run-locally-on-macos-or-linux)
+- [Configuration](#configuration)
+- [Optional OCR and LLM configuration](#optional-ocr-and-llm-configuration)
+- [Tests and production build](#tests-and-production-build)
+- [Security notes and known limitations](#security-notes-and-known-limitations)
+- [Roadmap](#roadmap)
 
-The knowledge base and company profile are persisted locally. A replaceable `KnowledgeRetriever` interface ranks entries using local TF-IDF/cosine similarity. Draft generation uses deterministic mock mode by default; configure `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` to use an OpenAI-compatible chat-completions API. Connection errors fall back to the local draft. Retrieval is lexical rather than embedding-based vector search. The SQLAlchemy storage adapter supports SQLite and PostgreSQL through the optional `DATABASE_URL` setting. Alembic applies forward-only, versioned schema migrations on backend startup and can also be run manually from `backend` with `python -m alembic upgrade head`.
+## What it does
+
+Bid-Pilot provides a workflow for extracting requirements from an RFP and preparing a draft proposal that people can edit and review. It is designed to demonstrate document-processing, API, workflow, and full-stack application concepts in one project.
+
+## Key capabilities
+
+- **Document intake:** accepts PDF, DOCX, TXT, and Markdown files; the application enforces an upload size limit.
+- **Text extraction:** uses PyMuPDF for PDF text and python-docx for DOCX files. Scanned PDFs can use local Tesseract OCR when configured.
+- **Requirement extraction:** rule-based logic classifies requirement wording as mandatory or optional.
+- **Draft workflow:** LangGraph coordinates extraction, analysis, drafting, cost-estimation, compliance, and optimisation steps.
+- **Editable proposal content:** review and update requirement responses and proposal sections.
+- **Reusable context:** maintain company profile information, knowledge-base entries, and proposal templates.
+- **Team review:** assign reviewers, add comments, update workflow status, and use reviewer/viewer roles when authentication is enabled.
+- **Export:** generate editable DOCX and PDF outputs.
+- **Local persistence:** SQLite is the default; PostgreSQL can be configured with a database URL.
+- **Demo mode:** a deterministic local draft mode is available without an LLM API key.
+
+## How it works
+
+1. Upload an RFP document.
+2. Extract text from the document; scanned PDFs may require OCR setup.
+3. Identify and classify requirement statements.
+4. Run the proposal workflow to create a draft and record workflow summaries.
+5. Review and edit the proposal, assign reviewers, and add comments.
+6. Export the reviewed draft to DOCX or PDF.
+
+### Architecture at a glance
+
+```text
+React + Vite frontend
+        |
+        | HTTP / REST
+        v
+FastAPI backend
+        |
+        +--> PDF / DOCX / TXT / Markdown parsing
+        +--> Requirement extraction
+        +--> LangGraph proposal workflow
+        +--> Company profile, knowledge base, templates
+        +--> SQLAlchemy persistence (SQLite / PostgreSQL)
+        +--> DOCX / PDF export
+```
+
+The knowledge retriever currently uses local TF-IDF/cosine similarity. It is lexical retrieval, **not embedding-based semantic vector search**. LLM-backed drafting is optional and uses an OpenAI-compatible chat-completions API when configured.
+
+## Technology stack
+
+| Area | Technologies |
+|---|---|
+| Frontend | React, Vite, JavaScript |
+| API | Python, FastAPI, Uvicorn |
+| Workflow | LangGraph |
+| Document processing | PyMuPDF, python-docx, Pillow, optional Tesseract OCR |
+| Persistence | SQLAlchemy, SQLite, optional PostgreSQL |
+| Migrations | Alembic |
+| Export | python-docx, ReportLab |
+| Tests | pytest, HTTPX |
 
 ## Requirements
 
-- Python 3.11 or newer
-- Node.js 20 or newer
+- **Python 3.11 or newer**
+- **Node.js 20 or newer** (includes npm)
+- Git
+- Optional: Tesseract OCR for scanned/image-only PDFs
+- Optional: PostgreSQL for a non-SQLite database
+- Optional: a reachable ClamAV daemon for configured upload scanning
 
-## Backend setup (Windows PowerShell)
+## Run locally on Windows
 
-Open PowerShell in the project folder:
+Run commands from PowerShell. First clone the repository and enter the project directory:
+
+```powershell
+git clone https://github.com/sahilkumar21072004-a11y/Bid-Pilot_AI-MVP.git
+cd Bid-Pilot_AI-MVP
+```
+
+### 1. Configure and start the backend
 
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 Copy-Item ..\.env.example .env
 python -m uvicorn app.main:app --reload
 ```
 
-The API is at `http://127.0.0.1:8000`; interactive API docs are at `http://127.0.0.1:8000/docs`; health is `http://127.0.0.1:8000/api/health`.
+The first run initializes the configured database. Once the server starts, open:
 
-## Frontend setup
+- API: http://127.0.0.1:8000
+- Interactive API documentation: http://127.0.0.1:8000/docs
+- Health endpoint: http://127.0.0.1:8000/api/health
 
-Open a second PowerShell window:
+Keep this terminal running.
+
+### 2. Start the frontend
+
+Open a **second** PowerShell terminal from the repository root:
 
 ```powershell
 cd frontend
@@ -46,63 +125,129 @@ npm install
 npm run dev
 ```
 
-Open the Vite URL printed in the terminal, usually `http://localhost:5173`.
+Open the local URL printed by Vite, usually http://localhost:5173.
 
-## Environment variables
+### PowerShell note
 
-Copy `.env.example` to `backend/.env` to configure the backend. `DATABASE_PATH` defaults to `./bidpilot.db` relative to the backend working directory; set `DATABASE_URL` to a PostgreSQL SQLAlchemy URL to use PostgreSQL instead. `FRONTEND_ORIGIN` configures CORS. Frontend `VITE_API_URL` may be set in `frontend/.env.local`; its default is `http://127.0.0.1:8000`. No API keys are needed or stored in the repository. To enable authentication, set `AUTH_ENABLED=true`, choose a private `ADMIN_PASSWORD`, and set a long random `SESSION_SECRET` in `backend/.env`; then restart the backend. Do not commit that file. The admin login produces an eight-hour signed bearer token and can manage individual Reviewer and Viewer accounts.
+If PowerShell blocks virtual-environment activation due to its execution policy, use a permitted local development setup or activate the environment from Command Prompt with:
 
-## Production security configuration
+```bat
+.venv\Scripts\activate.bat
+```
 
-For a production deployment, set `APP_ENV=production`. The backend will refuse to start unless authentication is enabled, the admin password is at least 16 characters, the session secret is at least 32 characters, the frontend origin uses HTTPS, and ClamAV scanning is enabled. Set these values only in the deployment's secret manager or private environment; never commit credentials.
+## Run locally on macOS or Linux
 
-Configure `CLAMAV_ENABLED=true`, `CLAMAV_HOST`, and `CLAMAV_PORT` to point at a private, reachable ClamAV daemon. Uploads are rejected if the scanner is unavailable or cannot verify the file. Local demo mode keeps scanning disabled by default.
+From the repository root, configure the backend:
 
-## Tests and build
+```bash
+git clone https://github.com/sahilkumar21072004-a11y/Bid-Pilot_AI-MVP.git
+cd Bid-Pilot_AI-MVP/backend
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+cp ../.env.example .env
+python -m uvicorn app.main:app --reload
+```
 
-From `backend` with its virtual environment active:
+In a second terminal, from the repository root:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Use the local URL printed by Vite. These instructions describe the expected setup; environment-specific dependencies may require additional configuration.
+
+## Configuration
+
+The repository includes a safe example configuration at `.env.example`. For local development, the Windows and macOS/Linux instructions copy it to `backend/.env`.
+
+| Variable | Purpose |
+|---|---|
+| `APP_NAME` | Application display name |
+| `APP_ENV` | Environment mode; use `production` only with production security settings configured |
+| `DATABASE_PATH` | Local SQLite database path; defaults to `./bidpilot.db` relative to the backend working directory |
+| `DATABASE_URL` | Optional SQLAlchemy database URL; takes precedence over `DATABASE_PATH` when set |
+| `FRONTEND_ORIGIN` | Allowed frontend origin for CORS |
+| `DEMO_MODE` | Enables local demo behaviour |
+| `LLM_API_KEY` | Optional secret for an OpenAI-compatible chat-completions API |
+| `LLM_BASE_URL` | Optional LLM API base URL |
+| `LLM_MODEL` | Optional model identifier |
+| `TESSERACT_CMD` | Optional full path to the Tesseract executable |
+| `AUTH_ENABLED` | Enables workspace authentication |
+| `ADMIN_USERNAME`, `ADMIN_PASSWORD` | Admin login configuration when authentication is enabled |
+| `SESSION_SECRET` | Secret used for signed session tokens |
+| `CLAMAV_ENABLED`, `CLAMAV_HOST`, `CLAMAV_PORT` | Optional upload-scanning service configuration |
+| `VITE_API_URL` | Frontend API URL; defaults to `http://127.0.0.1:8000` |
+
+Keep secrets in your private local environment or deployment secret manager. **Never commit `backend/.env`, passwords, API keys, or real customer RFP documents.** The repository's `.gitignore` excludes common virtual environments, local environment files, databases, and Python cache files.
+
+### Optional PostgreSQL
+
+Set `DATABASE_URL` to a valid SQLAlchemy PostgreSQL URL and ensure the database is reachable. Example format:
+
+```text
+postgresql+psycopg://USERNAME:PASSWORD@HOST:5432/DATABASE_NAME
+```
+
+Use your own credentials; do not commit the connection string.
+
+## Optional OCR and LLM configuration
+
+### Scanned PDF OCR
+
+The application can attempt local Tesseract OCR for image-only PDFs. Install the Tesseract executable separately and set `TESSERACT_CMD` to its full path if it is not available on `PATH`. OCR may require additional time and resources; verify extracted text before relying on it.
+
+### LLM-backed drafting
+
+Demo mode can work without an LLM key. To use an OpenAI-compatible chat-completions endpoint, configure `LLM_API_KEY`, `LLM_BASE_URL`, and `LLM_MODEL` in the private backend environment, then restart the backend. Keep the key private. The application has a local fallback path when the configured LLM connection fails; check the UI and backend logs to understand which mode was used for a draft.
+
+## Tests and production build
+
+These commands are provided for you to run locally; **tests and build have not been verified as part of this README update**.
+
+Backend tests (from the `backend` directory, with the virtual environment active):
 
 ```powershell
 python -m pytest
 ```
 
-From `frontend`:
+Frontend production build (from the `frontend` directory):
 
 ```powershell
 npm run build
 ```
 
-## Current scope and production gaps
-
-The MVP includes optional signed authentication with individual reviewer/viewer accounts, role checks, proposal version snapshots and audit events, and a SQLAlchemy storage adapter configured for SQLite or PostgreSQL. The upload path validates supported file types and size, checks PDF/DOCX structure, applies parsing limits, and can scan through ClamAV. Production mode refuses to start unless authentication, strong secrets, HTTPS frontend origin, and ClamAV scanning are configured. A ClamAV service, encrypted storage, retention/deletion policies, scheduled backups, monitoring, and a deployment security review are still required before handling customer RFPs.
-
-Recommended next phases:
-
-1. Run backend tests and frontend build after upload hardening; test representative PDF, DOCX, oversized, malformed, and scanned files.
-2. Schedule and periodically restore-test database backups (SQLite backup API or PostgreSQL `pg_dump`/`pg_restore`).
-3. Add evidence citations and confidence review, then improve retrieval with embeddings and quality evaluation.
-4. Configure a reachable ClamAV daemon, encrypted storage, retention/deletion controls, observability, and deployment safeguards before using real customer RFPs.
-
-
-## Database migrations and backups
-
-The backend applies versioned Alembic migrations at startup. To apply them manually from the `backend` directory, run:
+You can also apply database migrations manually from the `backend` directory:
 
 ```powershell
 python -m alembic upgrade head
 ```
 
-For SQLite, stop the backend before copying the database file for a simple backup. For a consistent online backup, use Python's SQLite backup API:
+Review command output and resolve any environment-specific errors before describing the project as verified.
 
-```powershell
-python -c "import sqlite3; src=sqlite3.connect('bidpilot.db'); dst=sqlite3.connect('bidpilot-backup.db'); src.backup(dst); dst.close(); src.close()"
-```
+## Security notes and known limitations
 
-For PostgreSQL, install the PostgreSQL client tools and use a native libpq connection URL in `PGDATABASE_URL`:
+- Treat this as an MVP/local prototype, not a production-ready service for confidential customer documents.
+- Generated proposal content can be incomplete or incorrect. Human review is required for requirements, compliance statements, prices, and contractual commitments.
+- Requirement classification uses rule-based logic and can misclassify ambiguous wording.
+- Retrieval uses TF-IDF/cosine similarity rather than embeddings.
+- Scanned-document OCR depends on an external Tesseract installation.
+- Production mode is designed to require authentication, a strong admin password, a strong session secret, an HTTPS frontend origin, and configured ClamAV scanning. Upload scanning fails closed when the scanner is required but unavailable.
+- Before processing real customer RFPs, add and verify encrypted storage, retention and deletion policies, access controls, backups and restore procedures, monitoring, and a deployment security review.
+- Do not upload real confidential documents, personal data, credentials, or secrets to a public repository or demo environment.
 
-```powershell
-pg_dump --format=custom --file=bidpilot.dump $env:PGDATABASE_URL
-pg_restore --clean --if-exists --dbname=$env:PGDATABASE_URL bidpilot.dump
-```
+## Roadmap
 
-Keep backup files encrypted and restrict access. Test restores regularly; a backup is useful only if it can be restored.
+- [ ] Run backend tests and frontend build; document the verified results.
+- [ ] Test normal, malformed, oversized, and scanned PDF/DOCX uploads.
+- [ ] Add evidence citations and confidence indicators for extracted requirements.
+- [ ] Evaluate requirement extraction and draft quality on representative, permissioned sample documents.
+- [ ] Improve retrieval and measure quality before adopting embedding-based search.
+- [ ] Configure encrypted storage, retention/deletion controls, backups, monitoring, and production security review.
+
+## License
+
+No license is declared in this README. Add a `LICENSE` file before explicitly granting reuse rights.
