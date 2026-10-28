@@ -1,5 +1,7 @@
 # BID-PILOT AI — RFP-to-Proposal Workflow MVP
 
+[![CI](https://github.com/sahilkumar21072004-a11y/Bid-Pilot_AI-MVP/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/sahilkumar21072004-a11y/Bid-Pilot_AI-MVP/actions/workflows/ci.yml)
+
 A **local-first prototype** that helps teams turn Request for Proposal (RFP) documents into editable proposal drafts. Bid-Pilot combines a React dashboard with a FastAPI backend, document extraction, requirement review, configurable templates, reviewer workflows, and DOCX/PDF export.
 
 > **Project status:** MVP / local development prototype. It is not presented as a production-ready service. Review generated content for accuracy, completeness, compliance, and pricing before using it externally.
